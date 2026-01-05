@@ -170,59 +170,45 @@ def get_1d_sine_pe(pos_inds, dim, temperature=10000):
 
 
 def load_pretrained_weights(model, pretrained_path, strict=False):
-    """
-    加载预训练权重并检查形状是否匹配，不匹配的权重将被跳过。
-
-    Args:
-        model (nn.Module): 目标模型。
-        pretrained_path (str): 预训练权重文件路径。
-        strict (bool): 是否严格要求加载所有权重，默认为 False。
-
-    Returns:
-        model (nn.Module): 更新后的模型。
-    """
-    # 加载预训练权重
+    
     state_dict = torch.load(pretrained_path, map_location='cpu')
 
-    # 获取当前模型的权重字典
+    
     model_dict = model.state_dict()
 
-    # 过滤出在当前模型字典中存在的键
+    
     pretrained_dict = {k: v for k, v in state_dict.items() if k in model_dict}
 
-    # 记录需要删除的键
+    
     keys_to_remove = []
 
-    # 检查形状是否匹配，并只更新匹配的权重
+    
     for k, v in pretrained_dict.items():
         if v.shape != model_dict[k].shape:
             # print(f"Skipping weight {k} due to shape mismatch: "
             #       f"pretrained shape {v.shape} vs model shape {model_dict[k].shape}")
-            # 记录不匹配的键
+          
             keys_to_remove.append(k)
 
-    # 删除不匹配的权重
+    
     for key in keys_to_remove:
         pretrained_dict.pop(key)
 
-    # 更新模型权重
     model_dict.update(pretrained_dict)
 
-    # 加载更新后的权重到模型
     model.load_state_dict(model_dict, strict=strict)
 
     return model
 
 class CircularList:
     def __init__(self, max_length):
-        """初始化列表类，指定最大长度"""
         self.max_length = max_length
         self.data = []
 
     def append(self, item):
         self.data.append(item)
         if len(self.data) > self.max_length:
-            self.data.pop(0)  # 移除第一个元素（最先加入的数据）
+            self.data.pop(0)  ）
 
     def __getitem__(self, index):
         return self.data[index]

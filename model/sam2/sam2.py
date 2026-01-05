@@ -11,7 +11,7 @@ from .memory_attention import MemoryAttention, MemoryAttentionLayer
 from .position_encoding import PositionEmbeddingSine
 
 
-class Sam2Vio(nn.Module):
+class MPFSam2(nn.Module):
     def __init__(self, num_classes=3, image_size=256, num_maskmem = 7):
         super().__init__()
         self.image_encoder = ImageEncoder()
@@ -219,11 +219,11 @@ class Sam2Vio(nn.Module):
                                  output_list,
                                  num_frames=8):
         B = current_vision_feats[-1].size(1)  # batch size (8)
-        C = self.hidden_dim  # 隐藏层维度 (256)
-        mem_dim = self.mem_dim  # 记忆维度
-        H, W = feat_sizes[-1]  # 特征图尺寸 (16x16)
+        C = self.hidden_dim  
+        mem_dim = self.mem_dim  
+        H, W = feat_sizes[-1]  
         device = current_vision_feats[-1].device
-        # 第一帧处理
+        
         if frame_idx == 0 or self.num_maskmem ==0:
             pix_feat_with_mem = current_vision_feats[-1] + self.no_mem_embed
             pix_feat_with_mem = pix_feat_with_mem.permute(1, 2, 0).view(B, C, H, W)
@@ -233,35 +233,35 @@ class Sam2Vio(nn.Module):
         to_cat_memory_pos_embed = []
         num_obj_ptr_tokens = 0
 
-        # 1. 收集视觉记忆特征
+        
         memory_frame_indices = list(range(min(self.num_maskmem, len(output_list))))[::-1]
 
         for i, mem_idx in enumerate(memory_frame_indices):
             prev_output = output_list[mem_idx]
             if prev_output is not None:
-                # 加载视觉记忆特征
+                
                 maskmem_features = prev_output["maskmem_features"].to(device, non_blocking=True)
                 maskmem_pos_enc = prev_output["maskmem_pos_enc"][-1].to(device)
 
-                # 处理视觉记忆特征为序列格式
+                
                 mem_feat_seq = maskmem_features.flatten(2).permute(2, 0, 1)
 
-                # 处理位置编码 (空间+时间)
+                
                 spatial_pos = maskmem_pos_enc.flatten(2).permute(2, 0, 1)
 
-                # 使用提供的时间位置编码格式 (num_maskmem, 1, 1, mem_dim)
+                
                 temporal_pos = self.maskmem_tpos_enc[i]  # [1, 1, mem_dim]
 
-                # 扩展时间位置编码以匹配空间位置编码的形状
+                
                 temporal_pos = temporal_pos.expand(spatial_pos.size(0), B, mem_dim)
 
-                # 合并空间和时间位置编码
+                
                 mem_pos_seq = spatial_pos + temporal_pos
 
                 to_cat_memory.append(mem_feat_seq)
                 to_cat_memory_pos_embed.append(mem_pos_seq)
 
-        # 2. 处理对象指针
+        
         if self.use_obj_ptrs_in_encoder:
             max_ptr_frames = min(num_frames, self.max_obj_ptrs_in_encoder)
             pos_and_ptrs = [
@@ -296,7 +296,7 @@ class Sam2Vio(nn.Module):
             else:
                 num_obj_ptr_tokens = 0
 
-        # 拼接所有记忆特征
+        
         memory = torch.cat(to_cat_memory, dim=0)
         memory_pos_embed = torch.cat(to_cat_memory_pos_embed, dim=0)
 
@@ -308,7 +308,7 @@ class Sam2Vio(nn.Module):
             num_obj_ptr_tokens=num_obj_ptr_tokens
         )
 
-        # 重塑为空间特征图格式
+        
         pix_feat_with_mem = fused_feat_seq.permute(1, 2, 0).view(B, C, H, W)
 
         return pix_feat_with_mem
@@ -339,17 +339,17 @@ class Sam2Vio(nn.Module):
         B = backbone_features.size(0)
         device = backbone_features.device
 
-        # 直接调用修改后的多类别mask解码器
+        
         low_res_masks = self.sam_mask_decoder(
             image_embeddings=backbone_features,
             repeat_image=False,
             high_res_features=high_res_features,
         )
 
-        # 转换mask为float32以确保兼容性
+        
         low_res_masks = low_res_masks.float()
 
-        # 上采样到原始图像尺寸
+        
         high_res_masks = self.upsample_block(low_res_masks)
 
 
@@ -362,7 +362,7 @@ class Sam2Vio(nn.Module):
         return (
             low_res_masks,  # [B, num_classes, H*4, W*4]
             high_res_masks,  # [B, num_classes, H*16, W*16]
-            obj_ptr,  # 物体指针 [B, num_classes, C]
+            obj_ptr,  
         )
 
     def _encode_memory_in_output(
